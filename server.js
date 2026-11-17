@@ -1,15 +1,20 @@
 const http = require('http');
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 
-const pool = new Pool({
-  connectionString: (process.env.POSTGRES_PRISMA_URL || process.env.POSTGRES_URL) + '/' + process.env.POSTGRES_DATABASE + '?sslmode=require',
-});
+const supabase = createClient(
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  { auth: { persistSession: false } }
+);
 
 const server = http.createServer(async (req, res) => {
   if (req.url === '/api/countries' && req.method === 'GET') {
     try {
-      const result = await pool.query('SELECT name FROM public.countries ORDER BY name');
-      const countries = result.rows.map(row => row.name).join('</li><li>');
+      const { data: rows, error } = await supabase
+        .from('countries')
+        .select('name')
+        .order('name');
+      if (error) throw error;
       const html = `
         <!DOCTYPE html>
         <html>
@@ -29,7 +34,7 @@ const server = http.createServer(async (req, res) => {
                 <tr><th>Name</th></tr>
               </thead>
               <tbody>
-                ${result.rows.map(row => `<tr><td>${row.name}</td></tr>`).join('')}
+                ${rows.map(row => `<tr><td>${row.name}</td></tr>`).join('')}
               </tbody>
             </table>
           </body>
